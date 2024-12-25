@@ -119,61 +119,61 @@ const CardDisplay = ({ card, setImageData }: CardDisplayProps) => {
     const initalizeCanvas = async () => {
       // Fonts should be loaded to prevent a FOUC
       const infraFontObserver = new FontFaceObserver("Infra");
-      await infraFontObserver.load();
+      await infraFontObserver.load().then(async () => {
+        if (canvasEl.current && !canvas.current) {
+          canvas.current = new fabric.StaticCanvas(canvasEl.current, {
+            height: 1080,
+            width: 1920,
+            backgroundColor: "gray",
+          });
 
-      if (canvasEl.current && !canvas.current) {
-        canvas.current = new fabric.StaticCanvas(canvasEl.current, {
-          height: 1080,
-          width: 1920,
-          backgroundColor: "gray",
-        });
+          await buildBackground(card, canvas.current);
+          textObjects.current.upper = new fabric.Textbox("Upper", {
+            left: 707,
+            top: 154,
+            fontSize: 50,
+            fontFamily: "Infra",
+            fontWeight: 900,
+            width: 525,
+          });
+          textObjects.current.body = new fabric.Textbox("Body", {
+            left: 707,
+            top: 154 + 50 + 10,
+            fontSize: 28,
+            fontFamily: "Infra",
+            fontWeight: 325,
+            width: 525,
+          });
+          textObjects.current.lower = new fabric.Textbox("Lower", {
+            left: 707,
+            top: 154 + 50 + 75 + 28 + 10,
+            fontSize: 32,
+            fontFamily: "Infra",
+            fontWeight: 900,
+            width: 525,
+          });
 
-        await buildBackground(card, canvas.current);
-        textObjects.current.upper = new fabric.Textbox("Upper", {
-          left: 707,
-          top: 154,
-          fontSize: 50,
-          fontFamily: "Infra",
-          fontWeight: 900,
-          width: 525,
-        });
-        textObjects.current.body = new fabric.Textbox("Body", {
-          left: 707,
-          top: 154 + 50 + 10,
-          fontSize: 28,
-          fontFamily: "Infra",
-          fontWeight: 325,
-          width: 525,
-        });
-        textObjects.current.lower = new fabric.Textbox("Lower", {
-          left: 707,
-          top: 154 + 50 + 75 + 28 + 10,
-          fontSize: 32,
-          fontFamily: "Infra",
-          fontWeight: 900,
-          width: 525,
-        });
+          textGroup.current = new fabric.Group([
+            textObjects.current.upper,
+            textObjects.current.body,
+            textObjects.current.lower,
+          ]);
 
-        textGroup.current = new fabric.Group([
-          textObjects.current.upper,
-          textObjects.current.body,
-          textObjects.current.lower,
-        ]);
+          currentType.current = card.type;
+          updateText(
+            card,
+            textObjects.current,
+            textGroup.current ?? new fabric.Group(),
+            canvas.current
+          );
 
-        currentType.current = card.type;
-        updateText(
-          card,
-          textObjects.current,
-          textGroup.current ?? new fabric.Group(),
-          canvas.current
-        );
+          Object.values(textObjects.current).forEach((obj) => {
+            canvas.current?.add(obj);
+          });
 
-        Object.values(textObjects.current).forEach((obj) => {
-          canvas.current?.add(obj);
-        });
-
-        updateCanvasImage();
-      }
+          updateCanvasImage();
+        }
+      });
     };
     initalizeCanvas();
     return () => {
