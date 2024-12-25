@@ -56,6 +56,7 @@ function updateText(
     body?: fabric.Textbox;
     lower?: fabric.Textbox;
   },
+  textGroup: fabric.Group,
   canvas: fabric.StaticCanvas
 ) {
   let rotation = 0;
@@ -75,14 +76,11 @@ function updateText(
     } else {
       textObjects.upper.set("fill", "black");
     }
-    textObjects.upper.set("angle", rotation);
   }
   if (textObjects.body) {
     textObjects.body.set("text", card.body);
     textObjects.body.top =
       (textObjects.upper?.top || 0) + (textObjects.upper?.height || 0) + 45;
-
-    textObjects.body.set("angle", rotation);
   }
   if (textObjects.lower) {
     if (card.type === CardType.HideAndSeekCurse) {
@@ -101,7 +99,7 @@ function updateText(
       textObjects.lower.set("fill", "black");
     }
 
-    textObjects.lower.set("angle", rotation);
+    textGroup.set("angle", rotation);
   }
   canvas.renderAll();
 }
@@ -115,6 +113,7 @@ const CardDisplay = ({ card, setImageData }: CardDisplayProps) => {
     body?: fabric.Textbox;
     lower?: fabric.Textbox;
   }>({});
+  const textGroup = useRef<fabric.Group | null>(null);
 
   useEffect(() => {
     const initalizeCanvas = async () => {
@@ -155,12 +154,24 @@ const CardDisplay = ({ card, setImageData }: CardDisplayProps) => {
           width: 525,
         });
 
+        textGroup.current = new fabric.Group([
+          textObjects.current.upper,
+          textObjects.current.body,
+          textObjects.current.lower,
+        ]);
+
         currentType.current = card.type;
-        updateText(card, textObjects.current, canvas.current);
+        updateText(
+          card,
+          textObjects.current,
+          textGroup.current ?? new fabric.Group(),
+          canvas.current
+        );
 
         Object.values(textObjects.current).forEach((obj) => {
           canvas.current?.add(obj);
         });
+
         updateCanvasImage();
       }
     };
@@ -177,7 +188,12 @@ const CardDisplay = ({ card, setImageData }: CardDisplayProps) => {
           await buildBackground(card, canvas.current);
           currentType.current = card.type;
         }
-        updateText(card, textObjects.current, canvas.current);
+        updateText(
+          card,
+          textObjects.current,
+          textGroup.current ?? new fabric.Group(),
+          canvas.current
+        );
         canvas.current.renderAll();
         updateCanvasImage();
       }
