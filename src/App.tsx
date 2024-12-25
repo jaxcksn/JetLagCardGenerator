@@ -1,18 +1,21 @@
 /// <reference types="vite-plugin-svgr/client" />
 import { useEffect, useRef, useState } from "react";
 import * as fabric from "fabric";
-import FontFaceObserver from "fontfaceobserver";
 import JetLagBadge from "./assets/JetLagLogo.svg?react";
+import FontFaceObserver from "fontfaceobserver";
+import "unfonts.css";
 
 interface CardDisplayProps {
   card: JetLagCard;
   setImageData: (data: string) => void;
+  setIsLoading: (loading: boolean) => void;
 }
 
 interface CardEditorProps {
   card: JetLagCard;
   onEdit: (card: JetLagCard) => void;
-  onDownload: () => void;
+  onDownload: (type: "Image" | "Card") => void;
+  disabled?: boolean;
 }
 
 enum CardType {
@@ -26,6 +29,39 @@ interface JetLagCard {
   upper: string;
   lower: string;
   body: string;
+}
+
+function useFontLoader(
+  fontFamily: string,
+  options?: FontFaceObserver.FontVariant[]
+) {
+  const [isFontLoaded, setIsFontLoaded] = useState(false);
+
+  useEffect(() => {
+    const loadFont = async () => {
+      try {
+        if (Array.isArray(options)) {
+          const promises = options.map((option) => {
+            const font = new FontFaceObserver(fontFamily, option);
+            return font.load();
+          });
+          await Promise.all(promises);
+          setIsFontLoaded(true);
+        } else {
+          const font = new FontFaceObserver(fontFamily, options);
+          await font.load();
+          setIsFontLoaded(true);
+        }
+      } catch (error) {
+        console.error(`Failed to load font: ${fontFamily}`, error);
+        setIsFontLoaded(false);
+      }
+    };
+
+    loadFont();
+  }, [fontFamily, options]);
+
+  return isFontLoaded;
 }
 
 function getBackground(cardType: CardType) {
@@ -47,7 +83,7 @@ async function buildBackground(card: JetLagCard, canvas: fabric.StaticCanvas) {
   canvas.renderAll();
 }
 
-function updateText(
+function updateTextLarge(
   // This is really messy I'm sorry. I was trying to make this quickly.
   // I'll clean it up in the future.
   card: JetLagCard,
@@ -80,7 +116,7 @@ function updateText(
   if (textObjects.body) {
     textObjects.body.set("text", card.body);
     textObjects.body.top =
-      (textObjects.upper?.top || 0) + (textObjects.upper?.height || 0) + 45;
+      (textObjects.upper?.top || 0) + (textObjects.upper?.height || 0) + 75;
   }
   if (textObjects.lower) {
     if (card.type === CardType.HideAndSeekCurse) {
@@ -104,97 +140,152 @@ function updateText(
   canvas.renderAll();
 }
 
-const CardDisplay = ({ card, setImageData }: CardDisplayProps) => {
+function updateTextSmall(
+  card: JetLagCard,
+  textObjects: {
+    upper?: fabric.Textbox;
+    body?: fabric.Textbox;
+    lower?: fabric.Textbox;
+  },
+  canvas: fabric.StaticCanvas
+) {
+  if (textObjects.upper && textObjects.body && textObjects.lower) {
+    // Set upper
+    textObjects.upper.set(
+      "text",
+      card.type === CardType.NormalCurse ? "CURSED!" : card.upper.toUpperCase()
+    );
+    if (card.type === CardType.HideAndSeekCurse) {
+      textObjects.upper.set("fill", "#202d3c");
+    } else {
+      textObjects.upper.set("fill", "black");
+    }
+
+    // Set body
+    textObjects.body.set("text", card.body);
+    textObjects.body.top =
+      (textObjects.upper?.top || 0) + (textObjects.upper?.height || 0) + 110;
+
+    // Set lower
+    if (card.type === CardType.HideAndSeekCurse) {
+      textObjects.lower.set("text", "CASTING COST:" + "\u00A0" + card.lower);
+      textObjects.lower.top =
+        (textObjects.body?.top || 0) + (textObjects.body?.height || 0) + 66;
+      textObjects.lower.set("fontSize", 41.055);
+      textObjects.lower.set("fill", "#202d3c");
+      textObjects.lower.set("styles", {});
+    } else {
+      const rewardText = "REWARD: ";
+      textObjects.lower.set("text", rewardText + "\u00A0" + card.lower);
+      textObjects.lower.set("fontSize", 46.92);
+      textObjects.lower.top =
+        (textObjects.body?.top || 0) + (textObjects.body?.height || 0) + 66;
+      textObjects.lower.set("fill", "black");
+    }
+  }
+  canvas.renderAll();
+}
+
+const LargeImage = ({ card, setImageData, setIsLoading }: CardDisplayProps) => {
+  const isFontLoaded = useFontLoader("Infra", [
+    { weight: 900 },
+    { weight: 325 },
+    { weight: 400 },
+  ]);
   const currentType = useRef<CardType>(card.type);
-  const canvasEl = useRef<HTMLCanvasElement>(null);
-  const canvas = useRef<fabric.StaticCanvas | null>(null);
-  const textObjects = useRef<{
+  const largeCanvasEl = useRef<HTMLCanvasElement>(null);
+  const largeCanvas = useRef<fabric.StaticCanvas | null>(null);
+
+  const largeTextObjects = useRef<{
     upper?: fabric.Textbox;
     body?: fabric.Textbox;
     lower?: fabric.Textbox;
   }>({});
-  const textGroup = useRef<fabric.Group | null>(null);
+  const largeTextGroup = useRef<fabric.Group | null>(null);
 
   useEffect(() => {
-    const initalizeCanvas = async () => {
+    const initalizeLargeCanvas = async () => {
+      if (!isFontLoaded) return;
       // Fonts should be loaded to prevent a FOUC
-      const infraFontObserver = new FontFaceObserver("Infra");
-      await infraFontObserver.load().then(async () => {
-        if (canvasEl.current && !canvas.current) {
-          canvas.current = new fabric.StaticCanvas(canvasEl.current, {
-            height: 1080,
-            width: 1920,
-            backgroundColor: "gray",
-          });
+      if (largeCanvasEl.current && !largeCanvas.current) {
+        largeCanvas.current = new fabric.StaticCanvas(largeCanvasEl.current, {
+          height: 1080,
+          width: 1920,
+          backgroundColor: "gray",
+        });
 
-          await buildBackground(card, canvas.current);
-          textObjects.current.upper = new fabric.Textbox("Upper", {
-            left: 707,
-            top: 154,
-            fontSize: 50,
-            fontFamily: "Infra",
-            fontWeight: 900,
-            width: 525,
-          });
-          textObjects.current.body = new fabric.Textbox("Body", {
-            left: 707,
-            top: 154 + 50 + 10,
-            fontSize: 28,
-            fontFamily: "Infra",
-            fontWeight: 325,
-            width: 525,
-          });
-          textObjects.current.lower = new fabric.Textbox("Lower", {
-            left: 707,
-            top: 154 + 50 + 75 + 28 + 10,
-            fontSize: 32,
-            fontFamily: "Infra",
-            fontWeight: 900,
-            width: 525,
-          });
+        await buildBackground(card, largeCanvas.current);
+        largeTextObjects.current.upper = new fabric.Textbox("Upper", {
+          left: 707,
+          top: 154,
+          fontSize: 50,
+          fontFamily: "Infra",
+          fontWeight: 900,
+          width: 525,
+        });
+        largeTextObjects.current.body = new fabric.Textbox("Body", {
+          left: 707,
+          top: 154 + 50 + 10,
+          fontSize: 28,
+          fontFamily: "Infra",
+          fontWeight: 325,
+          width: 525,
+        });
+        largeTextObjects.current.lower = new fabric.Textbox("Lower", {
+          left: 707,
+          top: 154 + 50 + 75 + 28 + 10,
+          fontSize: 32,
+          fontFamily: "Infra",
+          fontWeight: 900,
+          width: 525,
+        });
 
-          textGroup.current = new fabric.Group([
-            textObjects.current.upper,
-            textObjects.current.body,
-            textObjects.current.lower,
-          ]);
+        largeTextGroup.current = new fabric.Group([
+          largeTextObjects.current.upper,
+          largeTextObjects.current.body,
+          largeTextObjects.current.lower,
+        ]);
 
-          currentType.current = card.type;
-          updateText(
-            card,
-            textObjects.current,
-            textGroup.current ?? new fabric.Group(),
-            canvas.current
-          );
+        currentType.current = card.type;
+        updateTextLarge(
+          card,
+          largeTextObjects.current,
+          largeTextGroup.current ?? new fabric.Group(),
+          largeCanvas.current
+        );
 
-          Object.values(textObjects.current).forEach((obj) => {
-            canvas.current?.add(obj);
-          });
+        Object.values(largeTextObjects.current).forEach((obj) => {
+          largeCanvas.current?.add(obj);
+        });
 
-          updateCanvasImage();
-        }
-      });
+        updateCanvasImage();
+      }
     };
-    initalizeCanvas();
+
+    setIsLoading(true);
+    initalizeLargeCanvas().then(() => {
+      setIsLoading(false);
+    });
+
     return () => {
-      canvas.current?.dispose();
+      largeCanvas.current?.dispose();
     };
-  }, []);
+  }, [isFontLoaded]);
 
   useEffect(() => {
     const buildCard = async () => {
-      if (canvas.current != null) {
+      if (largeCanvas.current != null) {
         if (card.type !== currentType.current) {
-          await buildBackground(card, canvas.current);
+          await buildBackground(card, largeCanvas.current);
           currentType.current = card.type;
         }
-        updateText(
+        updateTextLarge(
           card,
-          textObjects.current,
-          textGroup.current ?? new fabric.Group(),
-          canvas.current
+          largeTextObjects.current,
+          largeTextGroup.current ?? new fabric.Group(),
+          largeCanvas.current
         );
-        canvas.current.renderAll();
+        largeCanvas.current.renderAll();
         updateCanvasImage();
       }
     };
@@ -202,17 +293,131 @@ const CardDisplay = ({ card, setImageData }: CardDisplayProps) => {
   }, [card]);
 
   const updateCanvasImage = () => {
-    if (canvas.current) {
-      const dataUrl = canvas.current.toDataURL({
+    if (largeCanvas.current) {
+      const dataUrl = largeCanvas.current.toDataURL({
+        width: largeCanvas.current.width,
+        height: largeCanvas.current.height,
+        left: 0,
+        top: 0,
         format: "png",
-        quality: 1.0,
         multiplier: 1,
       });
       setImageData(dataUrl);
     }
   };
 
-  return <canvas ref={canvasEl} style={{ display: "none" }} />;
+  return (
+    <>
+      <canvas ref={largeCanvasEl} style={{ display: "none" }} />
+    </>
+  );
+};
+
+const SmallCard = ({ card, setImageData, setIsLoading }: CardDisplayProps) => {
+  const isFontLoaded = useFontLoader("Infra", [
+    { weight: 900 },
+    { weight: 325 },
+    { weight: 400 },
+  ]);
+  const currentType = useRef<CardType>(card.type);
+  const smallCanvasEl = useRef<HTMLCanvasElement>(null);
+  const smallCanvas = useRef<fabric.StaticCanvas | null>(null);
+
+  const smallTextObjects = useRef<{
+    upper?: fabric.Textbox;
+    body?: fabric.Textbox;
+    lower?: fabric.Textbox;
+  }>({});
+
+  const updateCardImage = () => {
+    if (smallCanvas.current) {
+      const dataUrl = smallCanvas.current.toDataURL({
+        width: smallCanvas.current.width,
+        height: smallCanvas.current.height,
+        left: 0,
+        top: 0,
+        format: "png",
+        multiplier: 1,
+      });
+      setImageData(dataUrl);
+    }
+  };
+
+  useEffect(() => {
+    const initalizeSmallCanvas = async () => {
+      if (!isFontLoaded) return;
+
+      const padding = 116;
+      const textWidth = 1000 - padding * 2;
+
+      if (smallCanvasEl.current && !smallCanvas.current) {
+        smallCanvas.current = new fabric.StaticCanvas(smallCanvasEl.current, {
+          height: 1400,
+          width: 1000,
+          backgroundColor: "white",
+        });
+
+        smallTextObjects.current.upper = new fabric.Textbox("Upper", {
+          left: padding,
+          top: 90,
+          fontSize: 73.31,
+          fontFamily: "Infra",
+          fontWeight: 900,
+          width: textWidth,
+        });
+        smallTextObjects.current.body = new fabric.Textbox("Body", {
+          left: padding,
+          top: 80 + 50 + 10,
+          fontSize: 41.06,
+          fontFamily: "Infra",
+          fontWeight: 325,
+          width: textWidth,
+        });
+        smallTextObjects.current.lower = new fabric.Textbox("Lower", {
+          left: padding,
+          top: 80 + 50 + 10 + 28 + 10,
+          fontSize: 46.92,
+          fontFamily: "Infra",
+          fontWeight: 900,
+          width: textWidth,
+        });
+
+        updateTextSmall(card, smallTextObjects.current, smallCanvas.current);
+        currentType.current = card.type;
+        Object.values(smallTextObjects.current).forEach((obj) => {
+          smallCanvas.current?.add(obj);
+        });
+
+        updateCardImage();
+      }
+    };
+
+    setIsLoading(true);
+    initalizeSmallCanvas().then(() => {
+      setIsLoading(false);
+    });
+
+    return () => {
+      smallCanvas.current?.dispose();
+    };
+  }, [isFontLoaded]);
+
+  useEffect(() => {
+    const buildCard = async () => {
+      if (smallCanvas.current != null) {
+        updateTextSmall(card, smallTextObjects.current, smallCanvas.current);
+        smallCanvas.current.renderAll();
+        updateCardImage();
+      }
+    };
+    buildCard();
+  }, [card]);
+
+  return (
+    <>
+      <canvas ref={smallCanvasEl} style={{ display: "none" }} />
+    </>
+  );
 };
 
 const CardEditor = (props: CardEditorProps) => {
@@ -232,6 +437,7 @@ const CardEditor = (props: CardEditorProps) => {
         }}
         id="cardTypeSelect"
         className="form-select"
+        disabled={props.disabled}
       >
         <option value={CardType.NormalChallenge}>Normal Challenge</option>
         <option value={CardType.NormalCurse}>Normal Curse</option>
@@ -251,6 +457,7 @@ const CardEditor = (props: CardEditorProps) => {
           });
         }}
         rows={1}
+        disabled={props.disabled}
       />
       <label htmlFor="body" className="form-label mt-3">
         Card Body
@@ -266,6 +473,7 @@ const CardEditor = (props: CardEditorProps) => {
           });
         }}
         rows={3}
+        disabled={props.disabled}
       />
       <label htmlFor="lower" className="form-label mt-3">
         Card Reward / Cost
@@ -281,16 +489,28 @@ const CardEditor = (props: CardEditorProps) => {
           });
         }}
         rows={1}
+        disabled={props.disabled}
       />
-      <div className="d-grid mt-3">
+      <div className="d-flex gap-2 mt-3 flex-md-row flex-column">
         <button
           type="button"
-          className="btn btn-primary btn-block"
+          className="btn btn-primary w-100"
           onClick={() => {
-            props.onDownload();
+            props.onDownload("Image");
           }}
+          disabled={props.disabled}
         >
           Save Image
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary w-100 "
+          onClick={() => {
+            props.onDownload("Card");
+          }}
+          disabled={props.disabled}
+        >
+          Save Card
         </button>
       </div>
     </div>
@@ -306,12 +526,27 @@ function App() {
   });
 
   const [imageData, setImageData] = useState<string>("");
+  const [cardData, setCardData] = useState<string>("");
+  const [isLargeLoading, setIsLargeLoading] = useState<boolean>(true);
+  const [isSmallLoading, setIsSmallLoading] = useState<boolean>(true);
 
   const handleEdit = (edited: JetLagCard) => {
     editCard({
       ...card,
       ...edited,
     });
+  };
+
+  const getDisplay = () => {
+    if (isLargeLoading || isSmallLoading || imageData === "") {
+      return (
+        <div className="w-100 d-flex justify-content-center align-items-center">
+          <div className="spinner-border" role="status"></div>
+        </div>
+      );
+    } else {
+      return <img src={imageData} alt="Card" className="img-fluid mb-sm-3" />;
+    }
   };
 
   return (
@@ -328,34 +563,42 @@ function App() {
           </div>
         </nav>
       </header>
-      <CardDisplay
+      <LargeImage
         card={card}
-        setImageData={(data) => {
-          setImageData(data);
-        }}
+        setImageData={setImageData}
+        setIsLoading={setIsLargeLoading}
+      />
+      <SmallCard
+        card={card}
+        setImageData={setCardData}
+        setIsLoading={setIsSmallLoading}
       />
       <div
         style={{ flex: 1 }}
         className="container-lg d-flex justify-content-center align-items-center"
       >
-        <div className="row">
+        <div className="row" style={{ flex: 1 }}>
           <div className="col-lg-8 col-md-7 col-sm-12 d-flex justify-content-center align-items-center">
-            <img src={imageData} alt="Card" className="img-fluid mb-sm-3" />
+            {getDisplay()}
           </div>
-
           <div className="col-lg-4 col-md-5 col-sm-12 mb-3 mb-md-0 mt-3 mt-md-0">
             <CardEditor
               card={card}
               onEdit={(card) => {
                 handleEdit(card);
               }}
-              onDownload={() => {
+              onDownload={(type) => {
                 const a = document.createElement("a");
-                a.href = imageData;
-                a.download = "card.png";
+                if (type === "Card") {
+                  a.href = cardData;
+                } else {
+                  a.href = imageData;
+                }
+                a.download = type == "Card" ? "card.png" : "card-image.png";
                 a.click();
                 a.remove();
               }}
+              disabled={isLargeLoading || isSmallLoading}
             />
           </div>
         </div>

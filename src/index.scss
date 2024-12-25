@@ -7,52 +7,6 @@ body {
 }
 
 @font-face {
-  font-family: "Infra";
-  font-style: normal;
-  font-weight: 400;
-  src: local("Infra"),
-    url("https://fonts.cdnfonts.com/s/46154/InfraRegular.woff") format("woff");
-}
-@font-face {
-  font-family: "Infra";
-  font-style: italic;
-  font-weight: 400;
-  src: local("Infra"),
-    url("https://fonts.cdnfonts.com/s/46154/InfraRegularItalic.woff")
-      format("woff");
-}
-@font-face {
-  font-family: "Infra";
-  font-style: normal;
-  font-weight: 325;
-  src: local("Infra"),
-    url("https://fonts.cdnfonts.com/s/46154/InfraLight.woff") format("woff");
-}
-@font-face {
-  font-family: "Infra";
-  font-style: italic;
-  font-weight: 325;
-  src: local("Infra"),
-    url("https://fonts.cdnfonts.com/s/46154/InfraLightItalic.woff")
-      format("woff");
-}
-@font-face {
-  font-family: "Infra";
-  font-style: normal;
-  font-weight: 900;
-  src: local("Infra"),
-    url("https://fonts.cdnfonts.com/s/46154/InfraBlack.woff") format("woff");
-}
-@font-face {
-  font-family: "Infra";
-  font-style: italic;
-  font-weight: 900;
-  src: local("Infra"),
-    url("https://fonts.cdnfonts.com/s/46154/InfraBlackItalic.woff")
-      format("woff");
-}
-
-@font-face {
   font-family: "tradegothic_ltbold";
   src: url("./assets/trade_gothic_lt_bold_no._2-webfont.woff2") format("woff2"),
     url("./assets/trade_gothic_lt_bold_no._2-webfont.woff") format("woff");
@@ -70,6 +24,10 @@ $btn-color: #263344;
   --bs-btn-active-color: #{lighten(#263344, 5%)};
   color: $body-bg;
   font-weight: 800;
+  text-transform: uppercase;
+}
+
+.upper {
   text-transform: uppercase;
 }
 
