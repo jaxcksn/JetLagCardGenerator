@@ -54,3 +54,10 @@ h6 {
   padding: 0 5px;
   white-space: nowrap;
 }
+
+.canvas-display {
+  display: flex;
+  max-width: 100%;
+  height: auto !important;
+  aspect-ratio: 16 / 9;
+}

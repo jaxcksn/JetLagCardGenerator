@@ -7,8 +7,9 @@ import "unfonts.css";
 
 interface CardDisplayProps {
   card: JetLagCard;
-  setImageData: (data: string) => void;
   setIsLoading: (loading: boolean) => void;
+  className?: string;
+  canvasRef: React.MutableRefObject<fabric.StaticCanvas | null>;
 }
 
 interface CardEditorProps {
@@ -186,7 +187,12 @@ function updateTextSmall(
   canvas.renderAll();
 }
 
-const LargeImage = ({ card, setImageData, setIsLoading }: CardDisplayProps) => {
+const LargeImage = ({
+  card,
+  setIsLoading,
+  className,
+  canvasRef,
+}: CardDisplayProps) => {
   const isFontLoaded = useFontLoader("Infra", [
     { weight: 900 },
     { weight: 325 },
@@ -194,7 +200,6 @@ const LargeImage = ({ card, setImageData, setIsLoading }: CardDisplayProps) => {
   ]);
   const currentType = useRef<CardType>(card.type);
   const largeCanvasEl = useRef<HTMLCanvasElement>(null);
-  const largeCanvas = useRef<fabric.StaticCanvas | null>(null);
 
   const largeTextObjects = useRef<{
     upper?: fabric.Textbox;
@@ -207,14 +212,14 @@ const LargeImage = ({ card, setImageData, setIsLoading }: CardDisplayProps) => {
     const initalizeLargeCanvas = async () => {
       if (!isFontLoaded) return;
       // Fonts should be loaded to prevent a FOUC
-      if (largeCanvasEl.current && !largeCanvas.current) {
-        largeCanvas.current = new fabric.StaticCanvas(largeCanvasEl.current, {
+      if (largeCanvasEl.current && !canvasRef.current) {
+        canvasRef.current = new fabric.StaticCanvas(largeCanvasEl.current, {
           height: 1080,
           width: 1920,
           backgroundColor: "gray",
         });
 
-        await buildBackground(card, largeCanvas.current);
+        await buildBackground(card, canvasRef.current);
         largeTextObjects.current.upper = new fabric.Textbox("Upper", {
           left: 707,
           top: 154,
@@ -251,14 +256,12 @@ const LargeImage = ({ card, setImageData, setIsLoading }: CardDisplayProps) => {
           card,
           largeTextObjects.current,
           largeTextGroup.current ?? new fabric.Group(),
-          largeCanvas.current
+          canvasRef.current
         );
 
         Object.values(largeTextObjects.current).forEach((obj) => {
-          largeCanvas.current?.add(obj);
+          canvasRef.current?.add(obj);
         });
-
-        updateCanvasImage();
       }
     };
 
@@ -268,52 +271,37 @@ const LargeImage = ({ card, setImageData, setIsLoading }: CardDisplayProps) => {
     });
 
     return () => {
-      largeCanvas.current?.dispose();
+      canvasRef.current?.dispose();
     };
   }, [isFontLoaded]);
 
   useEffect(() => {
     const buildCard = async () => {
-      if (largeCanvas.current != null) {
+      if (canvasRef.current != null) {
         if (card.type !== currentType.current) {
-          await buildBackground(card, largeCanvas.current);
+          await buildBackground(card, canvasRef.current);
           currentType.current = card.type;
         }
         updateTextLarge(
           card,
           largeTextObjects.current,
           largeTextGroup.current ?? new fabric.Group(),
-          largeCanvas.current
+          canvasRef.current
         );
-        largeCanvas.current.renderAll();
-        updateCanvasImage();
+        canvasRef.current.renderAll();
       }
     };
     buildCard();
   }, [card]);
 
-  const updateCanvasImage = () => {
-    if (largeCanvas.current) {
-      const dataUrl = largeCanvas.current.toDataURL({
-        width: largeCanvas.current.width,
-        height: largeCanvas.current.height,
-        left: 0,
-        top: 0,
-        format: "png",
-        multiplier: 1,
-      });
-      setImageData(dataUrl);
-    }
-  };
-
   return (
     <>
-      <canvas ref={largeCanvasEl} style={{ display: "none" }} />
+      <canvas ref={largeCanvasEl} className={className} />
     </>
   );
 };
 
-const SmallCard = ({ card, setImageData, setIsLoading }: CardDisplayProps) => {
+const SmallCard = ({ card, setIsLoading, canvasRef }: CardDisplayProps) => {
   const isFontLoaded = useFontLoader("Infra", [
     { weight: 900 },
     { weight: 325 },
@@ -321,27 +309,12 @@ const SmallCard = ({ card, setImageData, setIsLoading }: CardDisplayProps) => {
   ]);
   const currentType = useRef<CardType>(card.type);
   const smallCanvasEl = useRef<HTMLCanvasElement>(null);
-  const smallCanvas = useRef<fabric.StaticCanvas | null>(null);
 
   const smallTextObjects = useRef<{
     upper?: fabric.Textbox;
     body?: fabric.Textbox;
     lower?: fabric.Textbox;
   }>({});
-
-  const updateCardImage = () => {
-    if (smallCanvas.current) {
-      const dataUrl = smallCanvas.current.toDataURL({
-        width: smallCanvas.current.width,
-        height: smallCanvas.current.height,
-        left: 0,
-        top: 0,
-        format: "png",
-        multiplier: 1,
-      });
-      setImageData(dataUrl);
-    }
-  };
 
   useEffect(() => {
     const initalizeSmallCanvas = async () => {
@@ -350,8 +323,8 @@ const SmallCard = ({ card, setImageData, setIsLoading }: CardDisplayProps) => {
       const padding = 116;
       const textWidth = 1000 - padding * 2;
 
-      if (smallCanvasEl.current && !smallCanvas.current) {
-        smallCanvas.current = new fabric.StaticCanvas(smallCanvasEl.current, {
+      if (smallCanvasEl.current && !canvasRef.current) {
+        canvasRef.current = new fabric.StaticCanvas(smallCanvasEl.current, {
           height: 1400,
           width: 1000,
           backgroundColor: "white",
@@ -382,13 +355,11 @@ const SmallCard = ({ card, setImageData, setIsLoading }: CardDisplayProps) => {
           width: textWidth,
         });
 
-        updateTextSmall(card, smallTextObjects.current, smallCanvas.current);
+        updateTextSmall(card, smallTextObjects.current, canvasRef.current);
         currentType.current = card.type;
         Object.values(smallTextObjects.current).forEach((obj) => {
-          smallCanvas.current?.add(obj);
+          canvasRef.current?.add(obj);
         });
-
-        updateCardImage();
       }
     };
 
@@ -398,16 +369,15 @@ const SmallCard = ({ card, setImageData, setIsLoading }: CardDisplayProps) => {
     });
 
     return () => {
-      smallCanvas.current?.dispose();
+      canvasRef.current?.dispose();
     };
   }, [isFontLoaded]);
 
   useEffect(() => {
     const buildCard = async () => {
-      if (smallCanvas.current != null) {
-        updateTextSmall(card, smallTextObjects.current, smallCanvas.current);
-        smallCanvas.current.renderAll();
-        updateCardImage();
+      if (canvasRef.current != null) {
+        updateTextSmall(card, smallTextObjects.current, canvasRef.current);
+        canvasRef.current.renderAll();
       }
     };
     buildCard();
@@ -525,10 +495,11 @@ function App() {
     body: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
   });
 
-  const [imageData, setImageData] = useState<string>("");
-  const [cardData, setCardData] = useState<string>("");
-  const [isLargeLoading, setIsLargeLoading] = useState<boolean>(true);
-  const [isSmallLoading, setIsSmallLoading] = useState<boolean>(true);
+  const [isLargeLoading, setIsLargeLoading] = useState<boolean>(false);
+  const [isSmallLoading, setIsSmallLoading] = useState<boolean>(false);
+
+  const largeCanvasRef = useRef<fabric.StaticCanvas | null>(null);
+  const smallCanvasRef = useRef<fabric.StaticCanvas | null>(null);
 
   const handleEdit = (edited: JetLagCard) => {
     editCard({
@@ -538,14 +509,32 @@ function App() {
   };
 
   const getDisplay = () => {
-    if (isLargeLoading || isSmallLoading || imageData === "") {
-      return (
-        <div className="w-100 d-flex justify-content-center align-items-center">
-          <div className="spinner-border" role="status"></div>
-        </div>
-      );
-    } else {
-      return <img src={imageData} alt="Card" className="img-fluid mb-sm-3" />;
+    return (
+      <LargeImage
+        card={card}
+        setIsLoading={setIsLargeLoading}
+        className="mb-sm-3 canvas-display"
+        canvasRef={largeCanvasRef}
+      />
+    );
+  };
+
+  const handleDownload = (type: "Image" | "Card") => {
+    const canvas =
+      type === "Image" ? largeCanvasRef.current : smallCanvasRef.current;
+
+    if (canvas) {
+      const dataUrl = canvas.toDataURL({
+        format: "png",
+        multiplier: 1,
+        width: type === "Image" ? 1920 : 1000,
+        height: type === "Image" ? 1080 : 1400,
+      });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = type === "Image" ? "card-image.png" : "card-small.png";
+      a.click();
+      a.remove();
     }
   };
 
@@ -563,15 +552,12 @@ function App() {
           </div>
         </nav>
       </header>
-      <LargeImage
-        card={card}
-        setImageData={setImageData}
-        setIsLoading={setIsLargeLoading}
-      />
+
       <SmallCard
         card={card}
-        setImageData={setCardData}
         setIsLoading={setIsSmallLoading}
+        className=""
+        canvasRef={smallCanvasRef}
       />
       <div
         style={{ flex: 1 }}
@@ -588,15 +574,7 @@ function App() {
                 handleEdit(card);
               }}
               onDownload={(type) => {
-                const a = document.createElement("a");
-                if (type === "Card") {
-                  a.href = cardData;
-                } else {
-                  a.href = imageData;
-                }
-                a.download = type == "Card" ? "card.png" : "card-image.png";
-                a.click();
-                a.remove();
+                handleDownload(type);
               }}
               disabled={isLargeLoading || isSmallLoading}
             />

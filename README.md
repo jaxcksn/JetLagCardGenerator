@@ -8,7 +8,7 @@ You can view the live page at: https://jetlag.jaxcksn.dev/
 
 ### Overview
 
-The application is React single page application built with Vite. All the image generation is accomplished by using Fabric.js.
+The application is React single page application bundled with Vite. All the image generation is accomplished by using Fabric.js.
 
 ### Running Locally
 
